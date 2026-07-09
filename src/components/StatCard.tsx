@@ -1,6 +1,12 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  Easing,
+} from 'react-native-reanimated';
 
 interface StatCardProps {
   icon: string;
@@ -11,16 +17,44 @@ interface StatCardProps {
 }
 
 export const StatCard: React.FC<StatCardProps> = ({
-  icon, label, value, color = '#d4af37', delay = 0,
+  icon,
+  label,
+  value,
+  color = '#d4af37',
+  delay = 0,
 }) => {
   const scale = useSharedValue(0.8);
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(20);
 
   useEffect(() => {
-    scale.value = withTiming(1, { duration: 500, delay, easing: Easing.bezier(0.34, 1.56, 0.64, 1) });
-    opacity.value = withTiming(1, { duration: 400, delay });
-    translateY.value = withTiming(0, { duration: 500, delay, easing: Easing.out(Easing.cubic) });
+    if (delay > 0) {
+      scale.value = withDelay(
+        delay,
+        withTiming(1, {
+          duration: 500,
+          easing: Easing.bezier(0.34, 1.56, 0.64, 1),
+        })
+      );
+      opacity.value = withDelay(delay, withTiming(1, { duration: 400 }));
+      translateY.value = withDelay(
+        delay,
+        withTiming(0, {
+          duration: 500,
+          easing: Easing.out(Easing.cubic),
+        })
+      );
+    } else {
+      scale.value = withTiming(1, {
+        duration: 500,
+        easing: Easing.bezier(0.34, 1.56, 0.64, 1),
+      });
+      opacity.value = withTiming(1, { duration: 400 });
+      translateY.value = withTiming(0, {
+        duration: 500,
+        easing: Easing.out(Easing.cubic),
+      });
+    }
   }, [delay]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -39,9 +73,15 @@ export const StatCard: React.FC<StatCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16,
-    padding: 12, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, marginHorizontal: 4, minWidth: 90,
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    marginHorizontal: 4,
+    minWidth: 90,
   },
   icon: { fontSize: 24, marginBottom: 4 },
   value: { fontSize: 22, fontWeight: 'bold', marginBottom: 2 },
