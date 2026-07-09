@@ -1,4 +1,4 @@
-import { Audio, Sound } from 'expo-av';
+import { Audio } from 'expo-av';
 import { SOUNDS } from './SoundDefinitions';
 
 export interface AudioSettings {
@@ -24,9 +24,9 @@ type SettingsListener = (settings: AudioSettings) => void;
 export class AudioEngine {
   private static instance: AudioEngine | null = null;
   private settings: AudioSettings = { ...DEFAULT_SETTINGS };
-  private loadedSounds: Map<string, Sound> = new Map();
-  private activeInstances: Map<string, Sound[]> = new Map();
-  private currentMusic: Sound | null = null;
+  private loadedSounds: Map<string, Audio.Sound> = new Map();
+  private activeInstances: Map<string, Audio.Sound[]> = new Map();
+  private currentMusic: Audio.Sound | null = null;
   private currentMusicId: string | null = null;
   private listeners: SettingsListener[] = [];
   private isInitialized = false;
@@ -75,7 +75,10 @@ export class AudioEngine {
       let sound = this.loadedSounds.get(soundId);
       if (!sound) {
         const { sound: newSound } = await Audio.Sound.createAsync(
-          def.file, { shouldPlay: false, isLooping: false }, undefined, false
+          def.file,
+          { shouldPlay: false, isLooping: false },
+          undefined,
+          false
         );
         sound = newSound;
         this.loadedSounds.set(soundId, sound);
@@ -109,9 +112,13 @@ export class AudioEngine {
     try {
       const { sound } = await Audio.Sound.createAsync(
         def.file,
-        { shouldPlay: true, isLooping: true,
-          volume: this.settings.musicVolume * this.settings.masterVolume },
-        undefined, false
+        {
+          shouldPlay: true,
+          isLooping: true,
+          volume: this.settings.musicVolume * this.settings.masterVolume,
+        },
+        undefined,
+        false
       );
       this.currentMusic = sound;
       this.currentMusicId = trackId;
@@ -133,13 +140,17 @@ export class AudioEngine {
     }
   }
 
-  getSettings(): AudioSettings { return { ...this.settings }; }
+  getSettings(): AudioSettings {
+    return { ...this.settings };
+  }
 
   async updateSettings(partial: Partial<AudioSettings>): Promise<void> {
     this.settings = { ...this.settings, ...partial };
     if (this.currentMusic && partial.musicVolume !== undefined) {
       const vol = this.settings.musicVolume * this.settings.masterVolume;
-      try { await this.currentMusic.setVolumeAsync(this.settings.isMuted ? 0 : vol); } catch {}
+      try {
+        await this.currentMusic.setVolumeAsync(this.settings.isMuted ? 0 : vol);
+      } catch {}
     }
     this.notifyListeners();
   }
@@ -150,16 +161,22 @@ export class AudioEngine {
 
   private getCategoryVolume(category: string): number {
     switch (category) {
-      case 'sfx': return this.settings.sfxVolume;
-      case 'music': return this.settings.musicVolume;
-      case 'ambient': return this.settings.ambientVolume;
-      default: return 1;
+      case 'sfx':
+        return this.settings.sfxVolume;
+      case 'music':
+        return this.settings.musicVolume;
+      case 'ambient':
+        return this.settings.ambientVolume;
+      default:
+        return 1;
     }
   }
 
   subscribe(listener: SettingsListener): () => void {
     this.listeners.push(listener);
-    return () => { this.listeners = this.listeners.filter(l => l !== listener); };
+    return () => {
+      this.listeners = this.listeners.filter((l) => l !== listener);
+    };
   }
 
   private notifyListeners(): void {
@@ -168,7 +185,9 @@ export class AudioEngine {
 
   async dispose(): Promise<void> {
     for (const [, sound] of this.loadedSounds) {
-      try { await sound.unloadAsync(); } catch {}
+      try {
+        await sound.unloadAsync();
+      } catch {}
     }
     this.loadedSounds.clear();
     this.isInitialized = false;
