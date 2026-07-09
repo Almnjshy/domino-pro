@@ -1,6 +1,12 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  Easing,
+} from 'react-native-reanimated';
 
 interface ProgressBarProps {
   value: number;
@@ -12,15 +18,31 @@ interface ProgressBarProps {
 }
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
-  value, label, color = '#d4af37', height = 10,
-  showPercentage = true, delay = 0,
+  value,
+  label,
+  color = '#d4af37',
+  height = 10,
+  showPercentage = true,
+  delay = 0,
 }) => {
   const progress = useSharedValue(0);
 
   useEffect(() => {
-    progress.value = withTiming(Math.min(100, Math.max(0, value)), {
-      duration: 1200, delay, easing: Easing.out(Easing.cubic),
-    });
+    const targetValue = Math.min(100, Math.max(0, value));
+    if (delay > 0) {
+      progress.value = withDelay(
+        delay,
+        withTiming(targetValue, {
+          duration: 1200,
+          easing: Easing.out(Easing.cubic),
+        })
+      );
+    } else {
+      progress.value = withTiming(targetValue, {
+        duration: 1200,
+        easing: Easing.out(Easing.cubic),
+      });
+    }
   }, [value, delay]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -32,11 +54,19 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
       {(label || showPercentage) && (
         <View style={styles.header}>
           {label && <Text style={styles.label}>{label}</Text>}
-          {showPercentage && <Text style={[styles.percentage, { color }]}>{Math.round(value)}%</Text>}
+          {showPercentage && (
+            <Text style={[styles.percentage, { color }]}>{Math.round(value)}%</Text>
+          )}
         </View>
       )}
       <View style={[styles.track, { height }]}>
-        <Animated.View style={[styles.fill, { height, backgroundColor: color, borderRadius: height / 2 }, animatedStyle]} />
+        <Animated.View
+          style={[
+            styles.fill,
+            { height, backgroundColor: color, borderRadius: height / 2 },
+            animatedStyle,
+          ]}
+        />
       </View>
     </View>
   );
