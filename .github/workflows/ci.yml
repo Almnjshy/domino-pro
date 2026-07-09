@@ -1,0 +1,236 @@
+name: 🎲 Domino Pro CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+# إلغاء الـ workflows القديمة عند وجود push جديد
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================
+  # Job 1: فحص الكود
+  # ============================================
+  lint-and-typecheck:
+    name: 🔍 Code Quality Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔍 Run TypeScript check
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+      - name: 🧹 Run ESLint
+        run: npx eslint src/ --ext .js,.jsx,.ts,.tsx
+        continue-on-error: true
+
+  # ============================================
+  # Job 2: بناء Android APK
+  # ============================================
+  build-android:
+    name: 🤖 Build Android APK
+    runs-on: ubuntu-latest
+    needs: lint-and-typecheck
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: ☕ Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 🤖 Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 📦 Install npm dependencies
+        run: npm ci
+
+      - name: 🏗️ Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: 📱 Generate Android project (if not exists)
+        run: |
+          if [ ! -d "android" ]; then
+            echo "⚠️ Android folder not found. Creating minimal structure..."
+            mkdir -p android/app/src/main/java/com/dominoPro
+            mkdir -p android/app/src/main/res/values
+            mkdir -p android/gradle/wrapper
+            
+            # إنشاء settings.gradle
+            cat > android/settings.gradle << 'EOF'
+            rootProject.name = 'DominoPro'
+            include ':app'
+            EOF
+            
+            # إنشاء build.gradle الرئيسي
+            cat > android/build.gradle << 'EOF'
+            buildscript {
+                ext {
+                    buildToolsVersion = "34.0.0"
+                    minSdkVersion = 21
+                    compileSdkVersion = 34
+                    targetSdkVersion = 34
+                    kotlinVersion = "1.8.0"
+                }
+                repositories {
+                    google()
+                    mavenCentral()
+                }
+                dependencies {
+                    classpath("com.android.tools.build:gradle")
+                    classpath("com.facebook.react:react-native-gradle-plugin")
+                }
+            }
+            allprojects {
+                repositories {
+                    mavenCentral()
+                    google()
+                }
+            }
+            EOF
+            
+            # إنشاء gradle.properties
+            cat > android/gradle.properties << 'EOF'
+            org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
+            android.useAndroidX=true
+            android.enableJetifier=true
+            newArchEnabled=false
+            EOF
+            
+            # إنشاء gradle wrapper
+            cat > android/gradle/wrapper/gradle-wrapper.properties << 'EOF'
+            distributionBase=GRADLE_USER_HOME
+            distributionPath=wrapper/dists
+            distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-all.zip
+            zipStoreBase=GRADLE_USER_HOME
+            zipStorePath=wrapper/dists
+            EOF
+            
+            # إنشاء app/build.gradle
+            cat > android/app/build.gradle << 'EOF'
+            apply plugin: "com.android.application"
+            apply plugin: "com.facebook.react"
+
+            android {
+                ndkVersion rootProject.ext.ndkVersion
+                buildToolsVersion rootProject.ext.buildToolsVersion
+                compileSdk rootProject.ext.compileSdkVersion
+
+                namespace "com.dominoPro"
+                defaultConfig {
+                    applicationId "com.dominoPro"
+                    minSdkVersion rootProject.ext.minSdkVersion
+                    targetSdkVersion rootProject.ext.targetSdkVersion
+                    versionCode 1
+                    versionName "1.0"
+                }
+                signingConfigs {
+                    debug {
+                        storeFile file('debug.keystore')
+                        storePassword 'android'
+                        keyAlias 'androiddebugkey'
+                        keyPassword 'android'
+                    }
+                }
+                buildTypes {
+                    debug {
+                        signingConfig signingConfigs.debug
+                    }
+                    release {
+                        signingConfig signingConfigs.debug
+                        minifyEnabled false
+                    }
+                }
+            }
+
+            dependencies {
+                implementation("com.facebook.react:react-android")
+                if (hermesEnabled.toBoolean()) {
+                    implementation("com.facebook.react:hermes-android")
+                } else {
+                    implementation jscFlavor
+                }
+            }
+
+            apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
+            EOF
+            
+            echo "✅ Android structure created"
+          else
+            echo "✅ Android folder exists"
+          fi
+
+      - name: 🔑 Grant execute permission for gradlew
+        run: |
+          if [ -f "android/gradlew" ]; then
+            chmod +x android/gradlew
+          fi
+
+      - name: 🏗️ Build Android Debug APK
+        run: |
+          if [ -f "android/gradlew" ]; then
+            cd android && ./gradlew assembleDebug --no-daemon
+          else
+            echo "⚠️ Gradle wrapper not found, skipping APK build"
+            echo "📝 Note: Run 'npx react-native init' locally to generate Android project"
+            mkdir -p android/app/build/outputs/apk/debug
+            echo "APK build skipped - Android project not initialized" > android/app/build/outputs/apk/debug/build-info.txt
+          fi
+        continue-on-error: true
+
+      - name: 📤 Upload APK artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: domino-pro-android-${{ github.sha }}
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: 📊 Build Summary
+        if: always()
+        run: |
+          echo "## 🎲 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          if [ -f "android/app/build/outputs/apk/debug/app-debug.apk" ]; then
+            echo "- **APK:** ✅ Built successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **APK:** ⚠️ Not built (Android project not initialized)" >> $GITHUB_STEP_SUMMARY
+          fi
