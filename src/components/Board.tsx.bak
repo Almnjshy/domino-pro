@@ -1,0 +1,62 @@
+import React, { useMemo } from 'react';
+import { View, StyleSheet, Dimensions } from 'react-native';
+import Svg, { Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { DominoTile } from './DominoTile';
+import { BoardTile } from '../core/types';
+
+interface BoardProps {
+  tiles: BoardTile[];
+}
+
+export const Board: React.FC<BoardProps> = ({ tiles }) => {
+  const { width, height } = Dimensions.get('window');
+  const boardSize = Math.min(width - 20, height * 0.55);
+
+  const sortedTiles = useMemo(() =>
+    [...tiles].sort((a, b) => a.placedAt - b.placedAt),
+    [tiles]
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={[styles.boardWrapper, { width: boardSize, height: boardSize }]}>
+        <Svg width={boardSize} height={boardSize}>
+          <Defs>
+            <RadialGradient id="table-bg" cx="50%" cy="50%" r="70%">
+              <Stop offset="0%" stopColor="#0a5c2e" />
+              <Stop offset="100%" stopColor="#042814" />
+            </RadialGradient>
+          </Defs>
+          <Rect width={boardSize} height={boardSize} rx={20} ry={20} fill="url(#table-bg)" />
+          <Rect x={15} y={15} width={boardSize - 30} height={boardSize - 30}
+            rx={15} ry={15} fill="none" stroke="#d4af37" strokeWidth={1.5}
+            strokeDasharray="4,4" opacity={0.5} />
+        </Svg>
+
+        <View style={StyleSheet.absoluteFill}>
+          {sortedTiles.map(tile => (
+            <View
+              key={tile.id}
+              style={[
+                styles.tileWrapper,
+                {
+                  left: tile.x - 30,
+                  top: tile.y - 60,
+                  transform: [{ rotate: `${tile.rotation}deg` }],
+                }
+              ]}
+            >
+              <DominoTile left={tile.left} right={tile.right} width={60} height={120} />
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  boardWrapper: { position: 'relative', overflow: 'hidden' },
+  tileWrapper: { position: 'absolute' },
+});
