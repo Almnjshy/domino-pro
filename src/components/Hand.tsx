@@ -5,20 +5,31 @@ import { DominoTile as DominoTileType } from '../core/types';
 
 interface HandProps {
   tiles: DominoTileType[];
+  onTileSelect?: (tileId: string) => void;
   onTileDrop: (tileId: string, side: 'left' | 'right') => void;
   disabled?: boolean;
   onDragStart?: (tile: DominoTileType) => void;
 }
 
-export const Hand: React.FC<HandProps> = ({ tiles, onTileDrop, disabled, onDragStart }) => {
+export const Hand: React.FC<HandProps> = ({
+  tiles,
+  onTileSelect,
+  onTileDrop,
+  disabled,
+  onDragStart,
+}) => {
   const [draggingTileId, setDraggingTileId] = useState<string | null>(null);
 
   const handleDragStart = (tile: DominoTileType) => {
     setDraggingTileId(tile.id);
     onDragStart?.(tile);
+    onTileSelect?.(tile.id);
   };
 
-  const handleDragEnd = (tileId: string, result: { success: boolean; side?: 'left' | 'right' }) => {
+  const handleDragEnd = (
+    tileId: string,
+    result: { success: boolean; side?: 'left' | 'right' }
+  ) => {
     if (result.success && result.side) {
       onTileDrop(tileId, result.side);
     }
@@ -41,7 +52,7 @@ export const Hand: React.FC<HandProps> = ({ tiles, onTileDrop, disabled, onDragS
             style={[
               styles.tileSlot,
               { marginLeft: idx === 0 ? 0 : -8 },
-              draggingTileId === tile.id && styles.draggingTile
+              draggingTileId === tile.id && styles.draggingTile,
             ]}
           >
             <DraggableTile
