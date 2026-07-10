@@ -17,9 +17,6 @@ jobs:
         with:
           node-version: '20'
           
-      - name: Install dependencies
-        run: npm install
-        
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -29,22 +26,41 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         
-      - name: Create Android project
+      - name: Create fresh React Native project
         run: |
           npx @react-native-community/cli@12 init DominoPro --version 0.73.0
-          cp -r DominoPro/android ./
-          cp DominoPro/metro.config.js ./
-          cp DominoPro/babel.config.js ./
-          cp -r src ./android/app/src/main/assets/ 2>/dev/null || true
-          rm -rf DominoPro
+          
+      - name: Copy our source code
+        run: |
+          # انسخ ملفات المشروع
+          cp -r src DominoPro/
+          cp index.js DominoPro/ 2>/dev/null || true
+          cp App.tsx DominoPro/ 2>/dev/null || true
+          cp App.js DominoPro/ 2>/dev/null || true
+          
+      - name: Install additional dependencies
+        run: |
+          cd DominoPro
+          npm install react-native-svg@15.0.0
+          npm install react-native-reanimated@3.6.0
+          npm install react-native-gesture-handler@2.14.0
+          npm install react-native-sound@0.11.2
+          npm install @react-native-async-storage/async-storage@1.21.0
           
       - name: Bundle JS
         run: |
-          npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res/
+          cd DominoPro
+          mkdir -p android/app/src/main/assets
+          npx react-native bundle \
+            --platform android \
+            --dev false \
+            --entry-file index.js \
+            --bundle-output android/app/src/main/assets/index.android.bundle \
+            --assets-dest android/app/src/main/res/
           
       - name: Build APK
         run: |
-          cd android
+          cd DominoPro/android
           chmod +x gradlew
           ./gradlew assembleDebug
           
@@ -52,5 +68,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: domino-pro-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: DominoPro/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
