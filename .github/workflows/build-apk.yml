@@ -30,6 +30,33 @@ jobs:
         run: |
           npx @react-native-community/cli@12 init DominoPro --version 0.73.0
 
+      - name: Configure native modules
+        run: |
+          # إنشاء ملفات صوتية فارغة
+          mkdir -p DominoPro/android/app/src/main/res/raw
+          for sound in button_click domino_place win lose draw music_classic music_modern; do
+            dd if=/dev/zero of=DominoPro/android/app/src/main/res/raw/${sound}.mp3 bs=1024 count=1 2>/dev/null
+          done
+          
+          # تعديل MainApplication.java
+          MAIN_APP="DominoPro/android/app/src/main/java/com/dominopro/MainApplication.java"
+          
+          # إضافة imports
+          sed -i '/import com.facebook.react.ReactApplication;/a \
+          import com.swmansion.reanimated.ReanimatedPackage;\
+          import com.swmansion.gesturehandler.react.RNGestureHandlerPackage;\
+          import com.horcrux.svg.SvgPackage;\
+          import com.reactnativecommunity.asyncstorage.AsyncStoragePackage;\
+          import com.zmxv.RNSound.RNSoundPackage;' $MAIN_APP
+          
+          # إضافة packages في getPackages()
+          sed -i '/new MainReactPackage()/a \
+          , new ReanimatedPackage()\
+          , new RNGestureHandlerPackage()\
+          , new SvgPackage()\
+          , new AsyncStoragePackage()\
+          , new RNSoundPackage()' $MAIN_APP
+
       - name: Copy our source code
         run: |
           cp -r src DominoPro/
