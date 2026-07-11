@@ -11,21 +11,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-          
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        
+
       - name: Create fresh React Native project
         run: |
           npx @react-native-community/cli@12 init DominoPro --version 0.73.0
@@ -62,11 +62,11 @@ jobs:
         run: |
           cd DominoPro/android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: domino-pro-debug
-          path: DominoPro/android/app/build/outputs/apk/debug/app-debug.apk
+          name: domino-pro-release
+          path: DominoPro/android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
