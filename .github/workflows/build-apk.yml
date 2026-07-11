@@ -30,6 +30,66 @@ jobs:
         run: |
           npx @react-native-community/cli@12 init DominoPro --version 0.73.0
           
+      - name: Optimize build.gradle for smaller APK
+        run: |
+          cat > DominoPro/android/app/build.gradle << 'EOF'
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+
+    namespace "com.dominopro"
+    defaultConfig {
+        applicationId "com.almnjshy.dominopro"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+    }
+    
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            debuggable true
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
+        }
+    }
+    
+    splits {
+        abi {
+            reset()
+            enable true
+            universalApk true
+            include "armeabi-v7a", "arm64-v8a"
+        }
+    }
+}
+
+dependencies {
+    implementation("com.facebook.react:react-android")
+    if (hermesEnabled.toBoolean()) {
+        implementation("com.facebook.react:hermes-android")
+    } else {
+        implementation jscFlavor
+    }
+}
+
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
+EOF
+
+      - name: Create proguard-rules.pro
+        run: |
+          touch DominoPro/android/app/proguard-rules.pro
+
       - name: Copy our source code
         run: |
           # انسخ ملفات المشروع
@@ -58,7 +118,7 @@ jobs:
             --bundle-output android/app/src/main/assets/index.android.bundle \
             --assets-dest android/app/src/main/res/
           
-      - name: Build APK
+      - name: Build Release APK
         run: |
           cd DominoPro/android
           chmod +x gradlew
@@ -68,5 +128,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: domino-pro-release
-          path: DominoPro/android/app/build/outputs/apk/release/app-release.apk
+          path: DominoPro/android/app/build/outputs/apk/release/app-release-universal.apk
           retention-days: 30
