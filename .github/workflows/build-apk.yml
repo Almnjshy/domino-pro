@@ -38,24 +38,31 @@ jobs:
             dd if=/dev/zero of=DominoPro/android/app/src/main/res/raw/${sound}.mp3 bs=1024 count=1 2>/dev/null
           done
           
-          # تعديل MainApplication.java
-          MAIN_APP="DominoPro/android/app/src/main/java/com/dominopro/MainApplication.java"
+          # البحث عن MainApplication.java
+          MAIN_APP=$(find DominoPro/android -name "MainApplication.java" | head -1)
+          echo "Found: $MAIN_APP"
           
-          # إضافة imports
-          sed -i '/import com.facebook.react.ReactApplication;/a \
-          import com.swmansion.reanimated.ReanimatedPackage;\
-          import com.swmansion.gesturehandler.react.RNGestureHandlerPackage;\
-          import com.horcrux.svg.SvgPackage;\
-          import com.reactnativecommunity.asyncstorage.AsyncStoragePackage;\
-          import com.zmxv.RNSound.RNSoundPackage;' $MAIN_APP
-          
-          # إضافة packages في getPackages()
-          sed -i '/new MainReactPackage()/a \
-          , new ReanimatedPackage()\
-          , new RNGestureHandlerPackage()\
-          , new SvgPackage()\
-          , new AsyncStoragePackage()\
-          , new RNSoundPackage()' $MAIN_APP
+          if [ -n "$MAIN_APP" ]; then
+            # إضافة imports
+            sed -i '/import com.facebook.react.ReactApplication;/a \
+            import com.swmansion.reanimated.ReanimatedPackage;\
+            import com.swmansion.gesturehandler.react.RNGestureHandlerPackage;\
+            import com.horcrux.svg.SvgPackage;\
+            import com.reactnativecommunity.asyncstorage.AsyncStoragePackage;\
+            import com.zmxv.RNSound.RNSoundPackage;' $MAIN_APP
+            
+            # إضافة packages
+            sed -i '/new MainReactPackage()/a \
+            , new ReanimatedPackage()\
+            , new RNGestureHandlerPackage()\
+            , new SvgPackage()\
+            , new AsyncStoragePackage()\
+            , new RNSoundPackage()' $MAIN_APP
+            
+            echo "MainApplication.java modified successfully"
+          else
+            echo "MainApplication.java not found, skipping manual configuration"
+          fi
 
       - name: Copy our source code
         run: |
